@@ -1,29 +1,17 @@
-"""
-This program is to make tracking me and my fiance's finances accross multiple non-expense 
-accounts easier and report them in a shared excel file. This allows me to easily see the progress
-we are making towards buying a house and changes in deposits over time.
-Additionally it allows me to track accounts seperately and view key metrics 
-without having to manually type in all the information
-"""
 import pandas as pd
-import numpy as np
 from openpyxl import workbook, load_workbook
 import datetime
 from openpyxl.utils import get_column_letter
 
-
 """
-must have python3 installed to computer/ can install from internet                  https://www.python.org/downloads/
-type these into your terminal for mac to install required python libraries
-pip install pandas                    (python library to work with data)
-pip install numpy                     (python library to work with data)
-pip install openpyxl                  (engine that allows you to modify and exteernally save .xlsx files; also allows for certain parts of the file to be turned into objects)
-pip install datetime                  (gives IDE access to your computers clock/calender)
+This is my first programming project that I still use 
+Do not look at it.
 """
 
 
 #link your xlsx file here make sure its a string (on mac right click on desired file hold down options and hit copy file path)
-file = '/Applications/Python 3.12/Python Projects/bank account tracker/Actively used version/bank accoount tracker.xlsx'
+file = '/Users/charlesjennings/Desktop/bank_accounts/bank_account_data.xlsx'
+file_2 = '/Users/charlesjennings/Desktop/myproject/Personal_Finance/management/initialization_data/Initialization_data.xlsx'
 #CHANGE DESIRED SHEET NAMES HERE will interfere with data if changed in excel
 sheet1 = 'overall_bank_accounts'
 sheet2 = 'excel_calculations'
@@ -57,7 +45,7 @@ if sheet_names != [sheet1, sheet2, sheet3]:
 def input_validation(userInput, lower_bound, upper_bound):
     while  (userInput < lower_bound and lower_bound != -500) or (userInput > upper_bound and upper_bound != -500):
         userInput = float(input('Error, invalid input. Please try again: '))
-    return userInput    #pass -500 if there is no boundary
+    return userInput    
 
 def create_account(overall_bank_accounts):
     account_holder = input('Who is the account holder (Trin/Drew): ')
@@ -132,7 +120,7 @@ def transfer(overall_bank_accounts, overall_bank_accounts_readable, check):
             if amount > 0:
                 overall_bank_accounts.at[withdrawalInput, 3] -= amount
                 overall_bank_accounts.at[depositInput, 3] += amount
-    return overall_bank_accounts
+    return overall_bank_accounts, withdrawalInput, depositInput, amount
 
 def close_account(overall_bank_accounts_readable, overall_bank_accounts):
     print('Enter 0 at anytime to return back to the main menu.')
@@ -256,14 +244,16 @@ while (userInput != 0):
         else:
             overall_bank_accounts, num_withdrawal, withdrawalInput = withdrawal(overall_bank_accounts, overall_bank_accounts_readable, check)
             if num_withdrawal > 0:
-                #if deposit function successfully executes this transfers the relevant information to the records function
+                #if withdrawal function successfully executes this transfers the relevant information to the records function
                 excel_records = records(excel_records, withdrawalInput, 0, num_withdrawal, date, overall_bank_accounts)
             num_withdrawal = 0
     if userInput == 4:
         if (len(overall_bank_accounts) < 3 and check == 0) or (len(overall_bank_accounts) < 4 and check == 1):             
             print('Error, not enough accounts documented for a transfer to occur.')
         else:
-            overall_bank_accounts = transfer(overall_bank_accounts, overall_bank_accounts_readable, check)
+            overall_bank_accounts, withdrawalInput, depositInput, amount = transfer(overall_bank_accounts, overall_bank_accounts_readable, check)
+            excel_records = records(excel_records, withdrawalInput, 0, amount, date, overall_bank_accounts)
+            excel_records = records(excel_records, depositInput, amount, 0, date, overall_bank_accounts)
     if userInput == 5:
         if overall_bank_accounts.empty == True:       #Checks if theres an open account
             print('Sorry you do not currently have any open accounts')
@@ -283,6 +273,27 @@ with pd.ExcelWriter(file, mode = 'a', engine = "openpyxl", if_sheet_exists = 're
         excel_calculations.to_excel(writer, sheet_name = sheet2, header = columns_calculations, index = False)
     if excel_records.empty == False:
         excel_records.to_excel(writer, sheet_name = sheet3, header = columns_records, index = False)
+    for sheet in [sheet1, sheet2, sheet3]:
+        worksheet = writer.sheets[sheet]
+        for column in worksheet.columns:
+            max_length = 0
+            column = [cell for cell in column]
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)  
+            worksheet.column_dimensions[get_column_letter(column[0].column)].width = adjusted_width
+
+with pd.ExcelWriter(file_2, mode = 'a', engine = "openpyxl", if_sheet_exists = 'replace',) as writer:
+    if overall_bank_accounts.empty == False:
+        overall_bank_accounts.to_excel(writer, sheet_name = sheet1, header = columns, index = False)
+        excel_calculations.to_excel(writer, sheet_name = sheet2, header = columns_calculations, index = False)
+    if excel_records.empty == False:
+        excel_records.to_excel(writer, sheet_name = sheet3, header = columns_records, index = False)
+
     #Autofits Columns in the excel file
     for sheet in [sheet1, sheet2, sheet3]:
         worksheet = writer.sheets[sheet]
